@@ -1,0 +1,69 @@
+{
+  "name": "dsh-ssh-operator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DSH plugin bundle for safe SSH operation through the system OpenSSH client.",
+  "exports": {
+    ".": "./lib/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "skill",
+    "cordis.patch.yml",
+    "README.md",
+    "README.en.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "docs"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "smoke": "pnpm run build && node scripts/smoke-mcp.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/tests/unit/*.test.js && node --test test/*.test.js",
+    "docs:check": "node scripts/check-docs.mjs",
+    "release:prepare": "node scripts/release.mjs",
+    "check": "pnpm run docs:check && pnpm run typecheck && pnpm test && pnpm run smoke"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "~3.18.4",
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.4",
+    "@deepseek-ai/dsh-mcp-client": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-skill": "0.2.0-rc.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "~4.0.4",
+    "@deepseek-ai/dsh-mcp-client": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-skill": "0.2.0-rc.2",
+    "@deepseek-ai/schemastery": "~3.18.4",
+    "@types/node": "^24.10.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=24",
+    "pnpm": ">=11.19.0 <12"
+  },
+  "packageManager": "pnpm@11.19.0",
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "plugin",
+    "mcp",
+    "ssh",
+    "openssh"
+  ]
+}

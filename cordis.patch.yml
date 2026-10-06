@@ -1,0 +1,10 @@
+# dsh-ssh-operator 的组合层：加载插件 Host 入口；Host 入口再使用 DSH 官方
+# dsh-mcp-client 桥接内置的 stdio MCP 服务。工具公开名为 mcp__ssh_operator__*。
+
+- insert:
+    - id: ssh-operator
+      name: dsh-ssh-operator
+      config:
+        serverName: ssh_operator
+        toolCallTimeoutMs: 120000
+        failOnStartupError: false

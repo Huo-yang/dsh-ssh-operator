@@ -1,0 +1,8 @@
+node_modules/
+lib/
+dist-test/
+dist/
+*.tgz
+SHA256SUMS.txt
+release-manifest.json
+local/
