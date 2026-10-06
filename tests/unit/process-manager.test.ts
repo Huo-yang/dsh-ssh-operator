@@ -58,7 +58,10 @@ test("ProcessManager captures and hides the managed remote PID marker", async ()
     command: "test-command",
     expectRemotePid: true,
   });
-  await waitFor(() => manager.read(started.processId).remotePid === 4321);
+  await waitFor(() => {
+    const state = manager.read(started.processId);
+    return state.remotePid === 4321 && state.running === false;
+  });
   const result = manager.read(started.processId);
   assert.equal(result.remotePid, 4321);
   assert.equal(result.remoteExitCode, 255);
