@@ -1,0 +1,46 @@
+name: 缺陷报告 / Bug report
+description: 报告可复现的插件问题
+title: "fix: "
+labels: [bug]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题描述 / Problem
+      description: 请说明触发条件、实际结果和预期结果。
+    validations:
+      required: true
+  - type: input
+    id: dsh-version
+    attributes:
+      label: DSH 版本 / DSH version
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: 插件版本 / Plugin version
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统 / Operating system
+      options:
+        - Windows
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤 / Reproduction steps
+      description: 请移除主机名、用户名、路径、密钥、令牌和其他敏感信息。
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 脱敏日志 / Sanitized logs
+      render: shell

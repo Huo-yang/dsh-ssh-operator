@@ -6,3 +6,4 @@ dist/
 SHA256SUMS.txt
 release-manifest.json
 local/
+.local/
