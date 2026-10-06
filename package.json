@@ -4,6 +4,14 @@
   "private": true,
   "type": "module",
   "description": "DSH plugin bundle for safe SSH operation through the system OpenSSH client.",
+  "homepage": "https://github.com/Huo-yang/dsh-ssh-operator#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Huo-yang/dsh-ssh-operator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Huo-yang/dsh-ssh-operator/issues"
+  },
   "exports": {
     ".": "./lib/index.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
@@ -29,7 +37,7 @@
     "build": "node scripts/build.mjs",
     "smoke": "pnpm run build && node scripts/smoke-mcp.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
-    "test": "tsc -p tsconfig.test.json && node --test dist-test/tests/unit/*.test.js && node --test test/*.test.js",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/tests/unit/*.test.js && node --test tests/*.test.js",
     "docs:check": "node scripts/check-docs.mjs",
     "release:prepare": "node scripts/release.mjs",
     "check": "pnpm run docs:check && pnpm run typecheck && pnpm test && pnpm run smoke"

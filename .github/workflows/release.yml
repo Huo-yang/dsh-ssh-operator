@@ -34,13 +34,8 @@ jobs:
           name: dsh-ssh-operator-release-assets
           path: dist/*
           if-no-files-found: error
-      - name: Publish or update GitHub Release
+      - name: Publish GitHub Release
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
-            gh release upload "${{ github.ref_name }}" dist/* --clobber
-          else
-            gh release create "${{ github.ref_name }}" dist/* --verify-tag --generate-notes --title "dsh-ssh-operator ${{ github.ref_name }}"
-          fi
+        run: gh release create "${{ github.ref_name }}" dist/* --verify-tag --generate-notes --title "dsh-ssh-operator ${{ github.ref_name }}"
