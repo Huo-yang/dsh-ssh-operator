@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "SSH 远程操作",
+    "description": "通过系统 OpenSSH 安全操作 WSL 与远端 Linux 主机，并提供配套 Skill 和 30 个 MCP 工具。"
+  }
+}

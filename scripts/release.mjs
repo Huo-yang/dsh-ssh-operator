@@ -18,7 +18,7 @@ await mkdir(outDir, { recursive: true })
 
 const preview = JSON.parse(await captureNpm(['pack', '--dry-run', '--json', '--ignore-scripts'], root))[0]
 const packed = new Set(preview.files.map(file => file.path))
-for (const file of ['package.json', 'lib/index.js', 'lib/server.js', 'cordis.patch.yml', 'skill/ssh-operator/SKILL.md', 'README.md', 'README.en.md', 'LICENSE', 'CHANGELOG.md']) assert.ok(packed.has(file), `missing ${file}`)
+for (const file of ['package.json', 'lib/index.js', 'lib/server.js', 'cordis.patch.yml', 'skill/ssh-operator/SKILL.md', 'locale/zh.json', 'locale/en.json', 'README.md', 'README.en.md', 'LICENSE', 'CHANGELOG.md']) assert.ok(packed.has(file), `missing ${file}`)
 assert.ok([...packed].some(file => file.startsWith('docs/')))
 assert.ok(![...packed].some(file => /^(src|scripts|test|tests)\//.test(file)))
 
