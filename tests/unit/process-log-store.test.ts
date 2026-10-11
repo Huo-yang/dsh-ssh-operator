@@ -96,4 +96,3 @@ test("ProcessLogStore quarantines corrupt chunk data and its metadata", async ()
     rmSync(directory, { recursive: true, force: true });
   }
 });
-

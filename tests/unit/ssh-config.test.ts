@@ -25,4 +25,3 @@ test("listConcreteHosts ignores patterns and negations", async () => {
 test("listConcreteHosts returns an empty list for a missing config", async () => {
   assert.deepEqual(await listConcreteHosts(join(tmpdir(), "missing-ssh-config")), []);
 });
-

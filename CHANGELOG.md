@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-11
+
+### 新增 / Added
+
+- 同步 `ssh-operator-mcp v0.18.1`，将 MCP 工具集从 23 个扩展到 30 个。
+- Synchronize `ssh-operator-mcp v0.18.1`, expanding the MCP tool set from 23 to 30 tools.
+- 新增带哈希并发保护和幂等操作凭据的远端文本读取、补丁及原子写入。
+- Add remote text reading, patching, and atomic writes with hash-based concurrency checks and durable idempotency receipts.
+- 新增默认、登录和交互 shell 上下文、远端环境探测、目录树浏览与文本搜索。
+- Add default, login, and interactive shell contexts, remote environment probing, tree discovery, and text search.
+
+### 变更 / Changed
+
+- 将 MCP 工具注册拆分为执行与工作区模块，同时保持公开工具名称不变。
+- Modularize MCP tool registration into execution and workspace layers without changing public tool names.
+
 ### 变更 / Changed
 
 - 按统一仓库契约整理 Release 优先安装说明、双语文档、测试目录和 GitHub 协作模板。

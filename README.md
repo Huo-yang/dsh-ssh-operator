@@ -1,11 +1,11 @@
 <h1 align="center">dsh-ssh-operator</h1>
 
 <p align="center">让 DSH 通过系统 OpenSSH 安全操作 WSL 与远端 Linux 主机</p>
-<p align="center">内置 23 个 SSH Operator MCP 工具，并提供配套 Skill 操作指引</p>
+<p align="center">内置 30 个 SSH Operator MCP 工具，并提供配套 Skill 操作指引</p>
 <p align="center">Windows 工作留在本机，Linux 工作通过结构化 SSH 执行</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.0-orange" alt="Version 0.1.0" />
+  <img src="https://img.shields.io/badge/version-0.2.0-orange" alt="Version 0.2.0" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" /></a>
   <img src="https://img.shields.io/badge/node-%3E%3D24-brightgreen" alt="Node.js >= 24" />
 </p>
@@ -21,13 +21,16 @@
 
 - 枚举和诊断 Windows OpenSSH 配置中的具体主机别名。
 - 执行远端命令，或通过标准输入发送 Bash/POSIX shell 脚本。
+- 显式选择默认、登录或交互 shell，并以不回显值的方式设置或清除远端环境变量。
+- 分页列出远端目录树、搜索文本，并探测登录环境差异。
+- 带文件哈希并发保护地读取、补丁编辑或原子写入远端文本。
 - 查询、哈希、上传、原子上传和下载单个文件；覆盖默认关闭。
 - 启动、读取、停止和关闭受管远端进程。
 - 可选持久化进程日志，并在异常退出后执行带身份校验的恢复。
 - 使用 `ssh_sudo_probe` 被动检查免密 sudo；仅通过显式工具执行非交互提权。
 - 注册生命周期与插件一致的 `ssh-operator` Skill，指导模型安全组合 MCP 工具。
 
-插件通过 DSH 官方 `@deepseek-ai/dsh-mcp-client` 暴露 23 个 `mcp__ssh_operator__*` 工具。内置服务直接以 `shell: false` 启动系统 OpenSSH，远端脚本不会经过 PowerShell 引号层。
+插件通过 DSH 官方 `@deepseek-ai/dsh-mcp-client` 暴露 30 个 `mcp__ssh_operator__*` 工具。内置服务直接以 `shell: false` 启动系统 OpenSSH，远端脚本不会经过 PowerShell 引号层。
 
 ## 兼容性
 
@@ -41,18 +44,18 @@
 
 ### 从 GitHub Release 安装
 
-从 [`v0.1.0`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.1.0) 下载以下文件，无需解压：
+从 [`v0.2.0`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.2.0) 下载以下文件，无需解压：
 
 ```text
-dsh-ssh-operator-0.1.0.tgz
+dsh-ssh-operator-0.2.0.tgz
 SHA256SUMS.txt
 ```
 
 核对 SHA-256 后安装版本化归档：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 "C:\Downloads\dsh-ssh-operator-0.1.0.tgz"
-dsh plugin --profile web add "C:\Downloads\dsh-ssh-operator-0.1.0.tgz"
+Get-FileHash -Algorithm SHA256 "C:\Downloads\dsh-ssh-operator-0.2.0.tgz"
+dsh plugin --profile web add "C:\Downloads\dsh-ssh-operator-0.2.0.tgz"
 ```
 
 ### 从源码目录安装
@@ -82,12 +85,14 @@ dsh plugin --profile web add "D:\CodeSpace\personal\DSH_Plugin\dsh-ssh-operator"
 - 本地程序直接启动，不调用 PowerShell、`cmd.exe` 或其他本地命令 shell。
 - 插件不保存 SSH 密码、私钥或完整 SSH 配置。
 - 上传和下载默认拒绝覆盖；原子上传先校验 SHA-256，再在同目录发布。
+- 文本补丁要求调用方提供读取时的 SHA-256；并发变化会拒绝提交。相同 `operationId` 仅能重试完全相同的操作。
+- 环境探测只返回变量名和噪声指纹，不返回代理值；交互 shell 可能执行远端启动文件副作用，必须显式选择。
 - 超时、取消、传输失败和远端退出分别报告。
 - 持久日志是明文，可能包含敏感输出；仅在确有需要时启用并显式删除。
 - 恢复清理会校验远端进程身份 token，不按 PID 强制误杀。
 - sudo 工具固定使用 `sudo -n`，不接受或传输密码，也不会修改远端 sudoers；普通工具始终保持非特权。
 
-内置运行时同步自 `ssh-operator-mcp v0.15.0`（提交 `c9c11324cd6f7134059cb2db8912673dca35f3df`）。
+内置运行时同步自 `ssh-operator-mcp v0.18.1`（提交 `e8c5d9d78bd0162abd11d899ac2d4f9690a210cc`）。
 
 ## 开发
 
@@ -95,7 +100,7 @@ dsh plugin --profile web add "D:\CodeSpace\personal\DSH_Plugin\dsh-ssh-operator"
 pnpm install --frozen-lockfile
 pnpm peers check
 pnpm run check
-pnpm run release:prepare -- v0.1.0
+pnpm run release:prepare -- v0.2.0
 ```
 
 维护说明见 [架构](docs/ARCHITECTURE.md)、[测试](docs/TESTING.md)和[发布](docs/RELEASING.md)文档。

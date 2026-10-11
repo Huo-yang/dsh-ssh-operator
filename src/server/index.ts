@@ -9,9 +9,7 @@ import {
   baseOpenSshArgs,
   baseSshArgs,
   buildManagedRemoteCommand,
-  buildManagedScriptCommand,
   buildManagedSudoRemoteCommand,
-  buildManagedSudoScriptCommand,
   defaultSshConfigPath,
   remoteSpec,
   scpExecutable,
@@ -19,19 +17,39 @@ import {
   sshExecutable,
   validateRemotePath,
 } from "./commands.js";
-import { runProcess, type ProcessResult, type RemoteTerminationResult } from "./process-runner.js";
+import { runProcess, type RemoteTerminationResult } from "./process-runner.js";
 import { ProcessManager } from "./process-manager.js";
 import { listConcreteHosts } from "./ssh-config.js";
 import { ActiveProcessStore, type ActiveProcessRecord } from "./active-process-store.js";
 import { ProcessLogStore } from "./process-log-store.js";
-import { classifyProcessFailure, classifyThrownError, OperatorError, type ErrorPhase } from "./errors.js";
+import { TextOperationStore } from "./text-operation-store.js";
+import { classifyProcessFailure, OperatorError } from "./errors.js";
 import { runDoctor } from "./doctor.js";
 import { parseRemoteStat, parseSha256, remoteHashCommand, remoteStatCommand, sha256File } from "./file-operations.js";
+import {
+  analyzeText,
+  applyUnifiedPatch,
+  normalizeOperationId,
+  paginateText,
+  parseRemoteText,
+  remoteAtomicWriteCommand,
+  remoteReadTextCommand,
+  sha256Text,
+  type RemoteTextDocument,
+  type TextWriteMode,
+} from "./remote-text.js";
+import { contextualizeCommand, executionContextSummary } from "./execution-context.js";
+import { errorResponse as toolError, processResponse as resultContent } from "./tool-response.js";
+import { commonFields, executionContextFields } from "./tool-schemas.js";
+import { registerExecutionTools } from "./execution-tools.js";
+import { registerWorkspaceTools } from "./workspace-tools.js";
 
-const server = new McpServer({ name: "ssh-operator-mcp", version: "0.15.0" });
+const server = new McpServer({ name: "ssh-operator-mcp", version: "0.18.1" });
 const processManager = new ProcessManager();
 const activeProcessStore = new ActiveProcessStore();
 const processLogStore = new ProcessLogStore();
+const textOperationStore = new TextOperationStore();
+const textOperationRequests = new Map<string, string>();
 
 interface RecoveryEvent extends Record<string, unknown> {
   processId: string;
@@ -135,48 +153,6 @@ async function reconcileActiveProcesses(records: ActiveProcessRecord[]): Promise
   }
 }
 
-function resultContent(result: ProcessResult, phase: ErrorPhase) {
-  const failure = classifyProcessFailure(result, phase);
-  const payload = {
-    ok: failure === undefined,
-    ...result,
-    ...(failure ?? {}),
-  };
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
-    structuredContent: payload,
-    isError: !payload.ok,
-  };
-}
-
-function sudoResultContent(result: ProcessResult) {
-  const base = resultContent(result, "execute");
-  if (!base.isError) return base;
-  const message = `${result.stderr}\n${result.stdout}`.toLowerCase();
-  const sudoFailure = !message.includes("sudo:") ? undefined
-    : /password|authentication is required|a terminal is required/u.test(message)
-      ? { errorCode: "SUDO_AUTH_REQUIRED" as const, phase: "authorize" as const, retryable: false }
-      : /not allowed|not in the sudoers|may not run sudo/u.test(message)
-        ? { errorCode: "SUDO_POLICY_DENIED" as const, phase: "authorize" as const, retryable: false }
-        : undefined;
-  if (!sudoFailure) return base;
-  const payload = { ...base.structuredContent, ...sudoFailure };
-  return { content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }], structuredContent: payload, isError: true };
-}
-
-function toolError(error: unknown, phase: ErrorPhase = "internal") {
-  const payload = { ok: false, error: error instanceof Error ? error.message : String(error), ...classifyThrownError(error, phase) };
-  return {
-    content: [
-      {
-        type: "text" as const,
-        text: JSON.stringify(payload, null, 2),
-      },
-    ],
-    structuredContent: payload,
-    isError: true,
-  };
-}
 
 server.registerTool(
   "ssh_list_hosts",
@@ -210,7 +186,7 @@ server.registerTool(
   },
   async ({ host, timeoutMs }) => {
     try {
-      const payload = await runDoctor(activeProcessStore, processLogStore, host, timeoutMs);
+      const payload = await runDoctor(activeProcessStore, processLogStore, textOperationStore, host, timeoutMs);
       const remoteFailure = payload.remote ? classifyProcessFailure(payload.remote.result, "connect") : undefined;
       const response = { ...payload, ...(remoteFailure ?? {}) };
       return { content: [{ type: "text", text: JSON.stringify(response, null, 2) }], structuredContent: response, isError: !response.ok };
@@ -333,188 +309,195 @@ server.registerTool(
   },
 );
 
-const commonFields = {
-  host: z.string().describe("A concrete Host alias from the local OpenSSH config"),
-  cwd: z.string().optional().describe("Absolute working directory on the remote host"),
-  timeoutMs: z.number().int().min(1000).max(3_600_000).optional(),
-  maxOutputBytes: z.number().int().min(1024).max(20 * 1024 * 1024).optional(),
+const sha256Schema = z.string().regex(/^[a-fA-F0-9]{64}$/u).transform((value) => value.toLowerCase());
+const textOperationFields = {
+  host: commonFields.host,
+  remotePath: z.string().min(1).describe("Absolute POSIX path to one remote text file"),
+  timeoutMs: commonFields.timeoutMs,
+  operationId: z.string().uuid().optional().describe("Optional stable UUID used to correlate a safe retry"),
 };
 
-server.registerTool(
-  "ssh_probe",
-  {
-    description: "Verify a configured SSH host and report its user, hostname, shell, and working directory.",
-    inputSchema: { host: commonFields.host, timeoutMs: commonFields.timeoutMs },
-    annotations: { readOnlyHint: true },
-  },
-  async ({ host, timeoutMs }, extra) => {
-    try {
-      const command = "printf 'user=%s\\nhost=%s\\nshell=%s\\npwd=%s\\n' \"$(id -un)\" \"$(hostname)\" \"${SHELL:-}\" \"$(pwd)\"";
-      const result = await runProcess({
-        executable: sshExecutable(),
-        args: [...baseSshArgs(host), buildManagedRemoteCommand(command)],
-        timeoutMs,
-        signal: extra.signal,
-        expectRemotePid: true,
-        stopRemote: (remotePid) => stopRemoteProcessGroup(host, remotePid),
-      });
-      return resultContent(result, "connect");
-    } catch (error) {
-      return toolError(error);
-    }
-  },
-);
+function textOperatorError(
+  message: string,
+  errorCode: "FILE_CHANGED_CONCURRENTLY" | "FILE_LOCKED" | "FILE_TOO_LARGE" | "FILE_TYPE_UNSUPPORTED" | "PATCH_CONTEXT_MISMATCH" | "COMMIT_STATUS_UNKNOWN" | "OPERATION_ID_REUSED" | "VALIDATION_FAILED",
+  context: Record<string, unknown> = {},
+  retryable = false,
+): OperatorError {
+  return new OperatorError(message, { errorCode, phase: errorCode === "VALIDATION_FAILED" ? "validation" : "edit", retryable }, context);
+}
 
-server.registerTool(
-  "ssh_exec",
-  {
-    description: "Execute one remote shell command through system OpenSSH without invoking a local shell.",
-    inputSchema: {
-      ...commonFields,
-      command: z.string().min(1).describe("Command interpreted only by the remote login shell"),
-    },
-  },
-  async ({ host, cwd, command, timeoutMs, maxOutputBytes }, extra) => {
-    try {
-      const result = await runProcess({
-        executable: sshExecutable(),
-        args: [...baseSshArgs(host), buildManagedRemoteCommand(command, cwd)],
-        timeoutMs,
-        maxOutputBytes,
-        signal: extra.signal,
-        expectRemotePid: true,
-        stopRemote: (remotePid) => stopRemoteProcessGroup(host, remotePid),
-      });
-      return resultContent(result, "execute");
-    } catch (error) {
-      return toolError(error);
-    }
-  },
-);
+function classifyTextState(output: string, remotePath: string, expectedSha256?: string): OperatorError | undefined {
+  const stateLine = output.split(/\r?\n/u).find((line) => line.startsWith("STATE|"));
+  if (!stateLine) return undefined;
+  const [, state, detail] = stateLine.split("|");
+  if (state === "locked") return textOperatorError("Another SSH Operator edit currently holds the remote directory lock.", "FILE_LOCKED", { remotePath }, true);
+  if (["symlink-refused", "not-regular"].includes(state)) return textOperatorError(`Remote text target is unsupported: ${state}.`, "FILE_TYPE_UNSUPPORTED", { remotePath, state });
+  if (state === "too-large") return textOperatorError("Remote text file exceeds the configured read limit.", "FILE_TOO_LARGE", { remotePath, actualBytes: Number(detail) });
+  if (["conflict", "concurrent-create", "already-exists"].includes(state)) {
+    return textOperatorError("Remote file changed or was created concurrently; reread it before editing.", "FILE_CHANGED_CONCURRENTLY", { remotePath, expectedSha256: expectedSha256 ?? null, actualSha256: detail ?? null, state }, true);
+  }
+  if (state === "missing") return textOperatorError("Remote file does not exist for replacement.", "VALIDATION_FAILED", { remotePath, state });
+  if (state === "flock-missing") return textOperatorError("Remote host does not provide flock, which is required for coordinated text edits.", "VALIDATION_FAILED", { remotePath, state });
+  if (["staged-hash-mismatch", "verify-failed"].includes(state)) return textOperatorError("Remote write failed hash verification.", "COMMIT_STATUS_UNKNOWN", { remotePath, observedSha256: detail ?? null, state }, true);
+  return textOperatorError(`Remote text operation failed in state ${state}.`, "VALIDATION_FAILED", { remotePath, state, detail: detail ?? null });
+}
 
-server.registerTool(
-  "ssh_run_script",
-  {
-    description: "Send a Bash or POSIX shell script over SSH stdin so it never enters the Windows command line.",
-    inputSchema: {
-      ...commonFields,
-      interpreter: z.enum(["bash", "sh"]).default("bash"),
-      script: z.string().min(1),
-      args: z.array(z.string()).max(100).default([]),
-    },
-  },
-  async ({ host, cwd, interpreter, script, args, timeoutMs, maxOutputBytes }, extra) => {
-    try {
-      const result = await runProcess({
-        executable: sshExecutable(),
-        args: [...baseSshArgs(host), buildManagedScriptCommand(interpreter, args, cwd)],
-        stdin: script,
-        timeoutMs,
-        maxOutputBytes,
-        signal: extra.signal,
-        expectRemotePid: true,
-        stopRemote: (remotePid) => stopRemoteProcessGroup(host, remotePid),
-      });
-      return resultContent(result, "execute");
-    } catch (error) {
-      return toolError(error);
+async function readRemoteText(
+  host: string,
+  remotePath: string,
+  maxFileBytes: number,
+  timeoutMs: number | undefined,
+  signal: AbortSignal,
+  elevated = false,
+): Promise<RemoteTextDocument & { durationMs: number }> {
+  validateRemotePath(remotePath);
+  const command = remoteReadTextCommand(remotePath, maxFileBytes);
+  const result = await runProcess({
+    executable: sshExecutable(),
+    args: [...baseSshArgs(host), elevated ? buildManagedSudoRemoteCommand(command) : buildManagedRemoteCommand(command)],
+    timeoutMs,
+    maxOutputBytes: Math.min(20 * 1024 * 1024, Math.ceil(maxFileBytes * 4 / 3) + 16 * 1024),
+    signal,
+    expectRemotePid: true,
+    stopRemote: (remotePid) => stopRemoteProcessGroup(host, remotePid),
+  });
+  const failure = classifyProcessFailure(result, "edit");
+  if (failure) {
+    const textFailure = classifyTextState(result.stdout, remotePath);
+    if (textFailure) throw textFailure;
+    if (elevated) {
+      const sudoMessage = `${result.stderr}\n${result.stdout}`.toLowerCase();
+      if (/sudo:.*(?:password|authentication is required|terminal)/su.test(sudoMessage)) {
+        throw new OperatorError("Non-interactive sudo authorization is required.", { errorCode: "SUDO_AUTH_REQUIRED", phase: "authorize", retryable: false });
+      }
     }
-  },
-);
+    throw new OperatorError(`Remote text read failed: ${result.stderr || result.stdout}`, failure);
+  }
+  try {
+    return { ...parseRemoteText(result.stdout), durationMs: result.durationMs };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/changed while|hash mismatch/u.test(message)) throw textOperatorError(message, "FILE_CHANGED_CONCURRENTLY", { remotePath }, true);
+    if (/NUL|utf-8|encoded data/u.test(message)) throw textOperatorError(message, "FILE_TYPE_UNSUPPORTED", { remotePath });
+    throw error;
+  }
+}
 
-server.registerTool(
-  "ssh_sudo_probe",
-  {
-    description: "Passively test whether a host is already root or permits passwordless non-interactive sudo. No password is accepted or requested.",
-    inputSchema: { host: commonFields.host, timeoutMs: commonFields.timeoutMs },
-    annotations: { readOnlyHint: true },
-  },
-  async ({ host, timeoutMs }, extra) => {
-    try {
-      const script = [
-        "if [ \"$(id -u)\" -eq 0 ]; then printf 'state=already-root\\n'; exit 0; fi",
-        "if ! command -v sudo >/dev/null 2>&1; then printf 'state=sudo-not-found\\n'; exit 0; fi",
-        "sudo_error=$(mktemp 2>/dev/null || printf '/tmp/ssh-operator-sudo-$$')",
-        "if sudo -n true 2>\"$sudo_error\"; then printf 'state=available\\n'; rm -f -- \"$sudo_error\"; exit 0; fi",
-        "message=$(cat -- \"$sudo_error\" 2>/dev/null); rm -f -- \"$sudo_error\"",
-        "case \"$message\" in *password*|*authentication*|*terminal*) state=authentication-required ;; *not\\ allowed*|*sudoers*) state=policy-denied ;; *) state=unavailable ;; esac",
-        "printf 'state=%s\\n' \"$state\"",
-      ].join("\n");
-      const result = await runProcess({
-        executable: sshExecutable(),
-        args: [...baseSshArgs(host), buildManagedScriptCommand("sh", [])],
-        stdin: script,
-        timeoutMs,
-        signal: extra.signal,
-        expectRemotePid: true,
-        stopRemote: (remotePid) => stopRemoteProcessGroup(host, remotePid),
-      });
-      const failure = classifyProcessFailure(result, "execute");
-      if (failure) return resultContent(result, "execute");
-      const state = /^state=(.+)$/mu.exec(result.stdout)?.[1] ?? "unknown";
-      const payload = {
-        ok: true, host, state,
-        alreadyRoot: state === "already-root",
-        nonInteractive: state === "already-root" || state === "available",
-        requiresAuthentication: state === "authentication-required",
-        policyDenied: state === "policy-denied",
-        durationMs: result.durationMs,
-      };
-      return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }], structuredContent: payload };
-    } catch (error) {
-      return toolError(error, "execute");
-    }
-  },
-);
+async function observeRemoteHash(host: string, remotePath: string, elevated: boolean, timeoutMs?: number): Promise<string | "missing" | undefined> {
+  const command = `if [ -f ${shellQuote(remotePath)} ]; then ${remoteHashCommand(remotePath)}; elif [ ! -e ${shellQuote(remotePath)} ]; then printf 'missing\\n'; else exit 3; fi`;
+  const result = await runProcess({
+    executable: sshExecutable(),
+    args: [...baseSshArgs(host), elevated ? buildManagedSudoRemoteCommand(command) : buildManagedRemoteCommand(command)],
+    timeoutMs: Math.min(timeoutMs ?? 120_000, 15_000),
+    maxOutputBytes: 4096,
+    expectRemotePid: true,
+    stopRemote: (remotePid) => stopRemoteProcessGroup(host, remotePid),
+  });
+  if (result.exitCode !== 0) return undefined;
+  const value = result.stdout.trim();
+  return value === "missing" ? "missing" : parseSha256(value);
+}
 
-server.registerTool(
-  "ssh_sudo_exec",
-  {
-    description: "Explicitly execute one remote command as root through passwordless non-interactive sudo. Never accepts a password.",
-    inputSchema: { ...commonFields, command: z.string().min(1).describe("Command interpreted by a root POSIX shell") },
-    annotations: { destructiveHint: true },
-  },
-  async ({ host, cwd, command, timeoutMs, maxOutputBytes }, extra) => {
-    try {
-      const result = await runProcess({
-        executable: sshExecutable(),
-        args: [...baseSshArgs(host), buildManagedSudoRemoteCommand(command, cwd)],
-        timeoutMs, maxOutputBytes, signal: extra.signal, expectRemotePid: true,
-        stopRemote: (remotePid) => stopRemoteProcessGroup(host, remotePid),
-      });
-      return sudoResultContent(result);
-    } catch (error) {
-      return toolError(error, "execute");
-    }
-  },
-);
+async function replayStoredTextOperation(options: {
+  host: string;
+  remotePath: string;
+  operationId: string;
+  requestDigest: string;
+  elevated: boolean;
+  timeoutMs?: number;
+}) {
+  const record = textOperationStore.get(options.host, options.operationId);
+  if (!record) return undefined;
+  if (record.requestDigest !== options.requestDigest || record.remotePath !== options.remotePath) {
+    throw textOperatorError("operationId was already committed for a different text mutation.", "OPERATION_ID_REUSED", { host: options.host, remotePath: options.remotePath, operationId: options.operationId, requestDigest: options.requestDigest, recordedRequestDigest: record.requestDigest });
+  }
+  const observed = await observeRemoteHash(options.host, options.remotePath, options.elevated, options.timeoutMs);
+  if (observed === record.afterSha256) {
+    return { ...record.result, state: "already-applied", alreadyApplied: true, observedSha256: observed, verified: true, replayedFromDurableReceipt: true };
+  }
+  throw textOperatorError("A previously committed operation was found, but the remote file has changed since that commit.", "FILE_CHANGED_CONCURRENTLY", { host: options.host, remotePath: options.remotePath, operationId: options.operationId, committedSha256: record.afterSha256, observedSha256: observed ?? null }, true);
+}
 
-server.registerTool(
-  "ssh_sudo_run_script",
-  {
-    description: "Explicitly send a Bash or POSIX shell script over stdin and run it as root through passwordless non-interactive sudo. Never accepts a password.",
-    inputSchema: {
-      ...commonFields,
-      interpreter: z.enum(["bash", "sh"]).default("bash"),
-      script: z.string().min(1),
-      args: z.array(z.string()).max(100).default([]),
-    },
-    annotations: { destructiveHint: true },
-  },
-  async ({ host, cwd, interpreter, script, args, timeoutMs, maxOutputBytes }, extra) => {
-    try {
-      const result = await runProcess({
-        executable: sshExecutable(),
-        args: [...baseSshArgs(host), buildManagedSudoScriptCommand(interpreter, args, cwd)],
-        stdin: script, timeoutMs, maxOutputBytes, signal: extra.signal, expectRemotePid: true,
-        stopRemote: (remotePid) => stopRemoteProcessGroup(host, remotePid),
-      });
-      return sudoResultContent(result);
-    } catch (error) {
-      return toolError(error, "execute");
+async function writeRemoteTextAtomic(options: {
+  host: string;
+  remotePath: string;
+  content: string;
+  mode: TextWriteMode;
+  expectedSha256?: string;
+  preserveMetadata: boolean;
+  operationId?: string;
+  requestDigestOverride?: string;
+  elevated: boolean;
+  timeoutMs?: number;
+  signal: AbortSignal;
+}) {
+  validateRemotePath(options.remotePath);
+  const operationId = normalizeOperationId(options.operationId);
+  const afterSha256 = sha256Text(options.content);
+  const requestDigest = options.requestDigestOverride ?? sha256Text(JSON.stringify({ host: options.host, remotePath: options.remotePath, mode: options.mode, expectedSha256: options.expectedSha256 ?? null, afterSha256, preserveMetadata: options.preserveMetadata, elevated: options.elevated }));
+  const replayed = await replayStoredTextOperation({ host: options.host, remotePath: options.remotePath, operationId, requestDigest, elevated: options.elevated, timeoutMs: options.timeoutMs });
+  if (replayed) return replayed;
+  const operationKey = `${options.host}\0${operationId}`;
+  const previousRequest = textOperationRequests.get(operationKey);
+  if (previousRequest && previousRequest !== requestDigest) {
+    throw textOperatorError("operationId was already used for a different text mutation in this MCP instance.", "OPERATION_ID_REUSED", { host: options.host, remotePath: options.remotePath, operationId, requestDigest });
+  }
+  if (!previousRequest && textOperationRequests.size >= 1_000) {
+    const oldestKey = textOperationRequests.keys().next().value as string | undefined;
+    if (oldestKey) textOperationRequests.delete(oldestKey);
+  }
+  textOperationRequests.set(operationKey, requestDigest);
+  const command = remoteAtomicWriteCommand({ path: options.remotePath, mode: options.mode, expectedSha256: options.expectedSha256, preserveMetadata: options.preserveMetadata, operationId, afterSha256 });
+  const result = await runProcess({
+    executable: sshExecutable(),
+    args: [...baseSshArgs(options.host), options.elevated ? buildManagedSudoRemoteCommand(command) : buildManagedRemoteCommand(command)],
+    stdin: options.content,
+    timeoutMs: options.timeoutMs,
+    maxOutputBytes: 64 * 1024,
+    signal: options.signal,
+    expectRemotePid: true,
+    stopRemote: (remotePid) => stopRemoteProcessGroup(options.host, remotePid),
+  });
+  const failure = classifyProcessFailure(result, "edit");
+  if (failure) {
+    const textFailure = classifyTextState(result.stdout, options.remotePath, options.expectedSha256);
+    if (textFailure) throw textFailure;
+    if (options.elevated) {
+      const sudoMessage = `${result.stderr}\n${result.stdout}`.toLowerCase();
+      if (/sudo:.*(?:password|authentication is required|terminal)/su.test(sudoMessage)) {
+        throw new OperatorError("Non-interactive sudo authorization is required.", { errorCode: "SUDO_AUTH_REQUIRED", phase: "authorize", retryable: false });
+      }
     }
-  },
-);
+    if (["SSH_TIMEOUT", "SSH_TRANSPORT_FAILED", "SSH_UNREACHABLE", "SSH_CONNECTION_REFUSED"].includes(failure.errorCode)) {
+      const observed = await observeRemoteHash(options.host, options.remotePath, options.elevated, options.timeoutMs);
+      if (observed === afterSha256) {
+        const payload = { ok: true, host: options.host, remotePath: options.remotePath, operationId, requestDigest, state: "committed-after-reconcile", beforeSha256: options.expectedSha256 ?? "missing", afterSha256, observedSha256: observed, alreadyApplied: true, atomic: true, verified: true };
+        textOperationStore.upsert({ operationId, host: options.host, remotePath: options.remotePath, requestDigest, afterSha256, completedAt: new Date().toISOString(), result: payload });
+        return payload;
+      }
+      if (observed !== undefined && observed !== (options.expectedSha256 ?? "missing")) {
+        throw textOperatorError("Remote commit result conflicts with both the expected and intended hashes.", "FILE_CHANGED_CONCURRENTLY", { remotePath: options.remotePath, expectedSha256: options.expectedSha256 ?? "missing", afterSha256, observedSha256: observed, operationId }, true);
+      }
+      if (observed === undefined) throw textOperatorError("The connection failed during commit and the remote result could not be reconciled.", "COMMIT_STATUS_UNKNOWN", { remotePath: options.remotePath, expectedSha256: options.expectedSha256 ?? "missing", afterSha256, operationId }, true);
+    }
+    throw new OperatorError(`Remote atomic text write failed: ${result.stderr || result.stdout}`, failure, { remotePath: options.remotePath, operationId, afterSha256 });
+  }
+  const resultLine = result.stdout.split(/\r?\n/u).find((line) => line.startsWith("RESULT|"));
+  if (!resultLine) throw textOperatorError("Remote write completed without a verifiable result envelope.", "COMMIT_STATUS_UNKNOWN", { remotePath: options.remotePath, operationId, afterSha256 }, true);
+  const [, state, returnedOperation, beforeSha256, observedSha256] = resultLine.split("|");
+  if (returnedOperation !== operationId || observedSha256 !== afterSha256) throw textOperatorError("Remote write result did not match the requested operation and hash.", "COMMIT_STATUS_UNKNOWN", { remotePath: options.remotePath, operationId, returnedOperation, afterSha256, observedSha256 }, true);
+  const payload = {
+    ok: true, host: options.host, remotePath: options.remotePath, operationId, requestDigest, state,
+    beforeSha256, afterSha256, observedSha256,
+    alreadyApplied: state === "already-applied", atomic: true, verified: true,
+    bytesWritten: Buffer.byteLength(options.content, "utf8"), durationMs: result.durationMs,
+  };
+  textOperationStore.upsert({ operationId, host: options.host, remotePath: options.remotePath, requestDigest, afterSha256, completedAt: new Date().toISOString(), result: payload });
+  return payload;
+}
+
+registerExecutionTools(server, stopRemoteProcessGroup);
+registerWorkspaceTools(server, stopRemoteProcessGroup);
 
 server.registerTool(
   "ssh_stat",
@@ -573,6 +556,135 @@ server.registerTool(
       return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }], structuredContent: payload };
     } catch (error) {
       return toolError(error, "execute");
+    }
+  },
+);
+
+server.registerTool(
+  "ssh_read_text",
+  {
+    description: "Read a UTF-8 remote text file by line range with whole-file SHA-256 concurrency metadata. Refuses symlinks and binary data.",
+    inputSchema: {
+      host: commonFields.host,
+      remotePath: z.string().min(1).describe("Absolute POSIX path to one remote text file"),
+      startLine: z.number().int().min(1).default(1),
+      maxLines: z.number().int().min(1).max(10_000).default(400),
+      maxBytes: z.number().int().min(1024).max(1024 * 1024).default(256 * 1024),
+      maxFileBytes: z.number().int().min(1024).max(10 * 1024 * 1024).default(5 * 1024 * 1024),
+      timeoutMs: commonFields.timeoutMs,
+    },
+    annotations: { readOnlyHint: true },
+  },
+  async ({ host, remotePath, startLine, maxLines, maxBytes, maxFileBytes, timeoutMs }, extra) => {
+    try {
+      const document = await readRemoteText(host, remotePath, maxFileBytes, timeoutMs, extra.signal);
+      const page = paginateText(document.content, startLine, maxLines, maxBytes);
+      const { content: _fullContent, ...metadata } = document;
+      const payload = { ok: true, host, remotePath, ...metadata, ...page };
+      return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }], structuredContent: payload };
+    } catch (error) {
+      return toolError(error, "edit");
+    }
+  },
+);
+
+server.registerTool(
+  "ssh_write_text_atomic",
+  {
+    description: "Create or replace one UTF-8 remote text file using a directory lock, optimistic SHA-256 check, same-directory staging, atomic publication, and read-after-write verification.",
+    inputSchema: {
+      ...textOperationFields,
+      content: z.string().max(5 * 1024 * 1024),
+      mode: z.enum(["create", "replace"]),
+      expectedSha256: sha256Schema.optional().describe("Required for replace; whole-file hash returned by ssh_read_text"),
+      preserveMetadata: z.boolean().default(true),
+    },
+    annotations: { destructiveHint: true },
+  },
+  async ({ host, remotePath, content, mode, expectedSha256, preserveMetadata, operationId, timeoutMs }, extra) => {
+    try {
+      if (mode === "replace" && !expectedSha256) throw textOperatorError("expectedSha256 is required when mode=replace.", "VALIDATION_FAILED", { remotePath });
+      if (mode === "create" && expectedSha256) throw textOperatorError("expectedSha256 must be omitted when mode=create.", "VALIDATION_FAILED", { remotePath });
+      const payload = await writeRemoteTextAtomic({ host, remotePath, content, mode, expectedSha256, preserveMetadata, operationId, elevated: false, timeoutMs, signal: extra.signal });
+      return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }], structuredContent: payload };
+    } catch (error) {
+      return toolError(error, "edit");
+    }
+  },
+);
+
+const patchInputSchema = {
+  ...textOperationFields,
+  expectedSha256: sha256Schema,
+  patch: z.string().min(1).max(5 * 1024 * 1024).describe("Unified diff for exactly the remotePath file; path headers are ignored"),
+  dryRun: z.boolean().default(false),
+  maxFileBytes: z.number().int().min(1024).max(10 * 1024 * 1024).default(5 * 1024 * 1024),
+};
+
+async function applyRemoteTextPatch(input: {
+  host: string;
+  remotePath: string;
+  expectedSha256: string;
+  patch: string;
+  dryRun: boolean;
+  maxFileBytes: number;
+  operationId?: string;
+  timeoutMs?: number;
+}, signal: AbortSignal, elevated: boolean) {
+  const operationId = normalizeOperationId(input.operationId);
+  const requestDigest = sha256Text(JSON.stringify({ host: input.host, remotePath: input.remotePath, expectedSha256: input.expectedSha256, patch: input.patch, elevated }));
+  if (!input.dryRun) {
+    const replayed = await replayStoredTextOperation({ host: input.host, remotePath: input.remotePath, operationId, requestDigest, elevated, timeoutMs: input.timeoutMs });
+    if (replayed) return replayed;
+  }
+  const document = await readRemoteText(input.host, input.remotePath, input.maxFileBytes, input.timeoutMs, signal, elevated);
+  if (document.sha256 !== input.expectedSha256) {
+    throw textOperatorError("Remote file changed since it was read; regenerate the patch from the current content.", "FILE_CHANGED_CONCURRENTLY", { remotePath: input.remotePath, expectedSha256: input.expectedSha256, actualSha256: document.sha256 }, true);
+  }
+  let applied;
+  try {
+    applied = applyUnifiedPatch(document.content, input.patch);
+  } catch (error) {
+    throw textOperatorError(error instanceof Error ? error.message : String(error), "PATCH_CONTEXT_MISMATCH", { remotePath: input.remotePath, expectedSha256: input.expectedSha256 });
+  }
+  const afterSha256 = sha256Text(applied.content);
+  if (input.dryRun) {
+    return { ok: true, host: input.host, remotePath: input.remotePath, operationId, requestDigest, state: "dry-run", beforeSha256: document.sha256, afterSha256, verified: false, dryRun: true, hunksApplied: applied.hunksApplied, linesAdded: applied.linesAdded, linesDeleted: applied.linesDeleted, resultingText: analyzeText(applied.content) };
+  }
+  const written = await writeRemoteTextAtomic({ host: input.host, remotePath: input.remotePath, content: applied.content, mode: "replace", expectedSha256: input.expectedSha256, preserveMetadata: true, operationId, requestDigestOverride: requestDigest, elevated, timeoutMs: input.timeoutMs, signal });
+  return { ...written, dryRun: false, hunksApplied: applied.hunksApplied, linesAdded: applied.linesAdded, linesDeleted: applied.linesDeleted, resultingText: analyzeText(applied.content) };
+}
+
+server.registerTool(
+  "ssh_apply_patch",
+  {
+    description: "Apply a single-file unified diff without a remote patch dependency, guarded by an expected whole-file hash and an atomic verified commit.",
+    inputSchema: patchInputSchema,
+    annotations: { destructiveHint: true },
+  },
+  async (input, extra) => {
+    try {
+      const payload = await applyRemoteTextPatch(input, extra.signal, false);
+      return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }], structuredContent: payload };
+    } catch (error) {
+      return toolError(error, "edit");
+    }
+  },
+);
+
+server.registerTool(
+  "ssh_sudo_apply_patch",
+  {
+    description: "Explicitly apply a single-file unified diff as root through sudo -n, with expected-hash concurrency protection and atomic verification. Never accepts a password.",
+    inputSchema: patchInputSchema,
+    annotations: { destructiveHint: true },
+  },
+  async (input, extra) => {
+    try {
+      const payload = await applyRemoteTextPatch(input, extra.signal, true);
+      return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }], structuredContent: payload };
+    } catch (error) {
+      return toolError(error, "edit");
     }
   },
 );
@@ -745,14 +857,18 @@ server.registerTool(
     inputSchema: {
       host: commonFields.host,
       cwd: commonFields.cwd,
+      ...executionContextFields,
       command: z.string().min(1).describe("Long-running command interpreted by the remote login shell"),
       maxBufferBytes: z.number().int().min(64 * 1024).max(20 * 1024 * 1024).optional(),
       persistOutput: z.boolean().default(false).describe("Persist plaintext output locally for post-process pagination"),
       maxLogBytes: z.number().int().min(1024 * 1024).max(1024 * 1024 * 1024).default(100 * 1024 * 1024),
     },
   },
-  async ({ host, cwd, command, maxBufferBytes, persistOutput, maxLogBytes }) => {
+  async ({ host, cwd, command, shellMode, environment, maxBufferBytes, persistOutput, maxLogBytes }) => {
     try {
+      const contextualized = shellMode === "default" && Object.keys(environment).length === 0
+        ? command
+        : contextualizeCommand(command, shellMode, environment);
       const processId = randomUUID();
       const token = randomUUID();
       const startedAt = new Date().toISOString();
@@ -763,7 +879,7 @@ server.registerTool(
       try {
         summary = processManager.start({
           executable: sshExecutable(),
-          args: [...baseSshArgs(host), buildManagedRemoteCommand(command, cwd, token)],
+          args: [...baseSshArgs(host), buildManagedRemoteCommand(contextualized, cwd, token)],
           host,
           command,
           cwd,
@@ -794,8 +910,8 @@ server.registerTool(
         throw error;
       }
       return {
-        content: [{ type: "text", text: JSON.stringify(summary, null, 2) }],
-        structuredContent: summary,
+        content: [{ type: "text", text: JSON.stringify({ ...summary, executionContext: executionContextSummary(shellMode, environment) }, null, 2) }],
+        structuredContent: { ...summary, executionContext: executionContextSummary(shellMode, environment) },
       };
     } catch (error) {
       return toolError(error);

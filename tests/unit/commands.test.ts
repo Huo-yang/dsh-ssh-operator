@@ -77,4 +77,3 @@ test("remoteSpec requires a concrete host and absolute remote path", () => {
   assert.throws(() => remoteSpec("wsl-ubuntu", "relative.txt"));
   assert.throws(() => remoteSpec("bad;host", "/tmp/file"));
 });
-

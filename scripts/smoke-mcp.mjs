@@ -5,12 +5,14 @@ import { fileURLToPath } from 'node:url'
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const expected = [
   'ssh_close_process', 'ssh_delete_process_log', 'ssh_doctor', 'ssh_download',
-  'ssh_exec', 'ssh_hash', 'ssh_list_hosts', 'ssh_list_process_logs',
+  'ssh_apply_patch', 'ssh_env_probe', 'ssh_exec', 'ssh_hash', 'ssh_list_hosts', 'ssh_list_process_logs',
   'ssh_list_processes', 'ssh_list_recovery_records', 'ssh_probe',
+  'ssh_list_tree',
   'ssh_read_process_log', 'ssh_read_process_output', 'ssh_reconcile_processes',
+  'ssh_read_text', 'ssh_search_text',
   'ssh_run_script', 'ssh_start_process', 'ssh_stat', 'ssh_stop_process',
-  'ssh_sudo_exec', 'ssh_sudo_probe', 'ssh_sudo_run_script',
-  'ssh_upload', 'ssh_upload_atomic',
+  'ssh_sudo_apply_patch', 'ssh_sudo_exec', 'ssh_sudo_probe', 'ssh_sudo_run_script',
+  'ssh_upload', 'ssh_upload_atomic', 'ssh_write_text_atomic',
 ].sort()
 
 const child = spawn(process.execPath, [join(root, 'lib/server.js')], {

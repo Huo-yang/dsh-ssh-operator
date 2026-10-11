@@ -153,4 +153,3 @@ test("ActiveProcessStore refuses an unknown newer schema without moving it", () 
     rmSync(directory, { recursive: true, force: true });
   }
 });
-

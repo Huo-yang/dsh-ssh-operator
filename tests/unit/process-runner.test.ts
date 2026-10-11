@@ -72,4 +72,3 @@ test("runProcess does not retain an unclosed control-like stderr prefix", async 
   const result = await runProcess({ executable: process.execPath, args: ["-e", `process.stderr.write(${JSON.stringify(text)})`], expectRemotePid: true });
   assert.equal(result.stderr, text);
 });
-

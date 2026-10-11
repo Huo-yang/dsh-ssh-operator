@@ -6,8 +6,9 @@ import { baseSshArgs, defaultSshConfigPath, sshExecutable } from "./commands.js"
 import { listConcreteHosts } from "./ssh-config.js";
 import type { ActiveProcessStore } from "./active-process-store.js";
 import type { ProcessLogStore } from "./process-log-store.js";
+import type { TextOperationStore } from "./text-operation-store.js";
 
-const VERSION = "0.15.0";
+const VERSION = "0.18.1";
 
 async function pathCheck(path: string, mode: number): Promise<{ path: string; exists: boolean; accessible: boolean; error?: string }> {
   try {
@@ -29,15 +30,16 @@ async function writableLocation(path: string) {
   }
 }
 
-export async function runDoctor(activeStore: ActiveProcessStore, logStore: ProcessLogStore, host?: string, timeoutMs?: number) {
+export async function runDoctor(activeStore: ActiveProcessStore, logStore: ProcessLogStore, textOperationStore: TextOperationStore, host?: string, timeoutMs?: number) {
   const configPath = defaultSshConfigPath();
   const sshVersion = await runProcess({ executable: sshExecutable(), args: ["-V"], timeoutMs: 5_000 });
   const sshConfig = { ...(await pathCheck(configPath, constants.R_OK)), hosts: await listConcreteHosts(configPath) };
   const stateLocation = await writableLocation(activeStore.path);
   const logLocation = await writableLocation(logStore.directory);
+  const textOperationLocation = await writableLocation(textOperationStore.path);
   const programData = process.env.PROGRAMDATA ?? null;
   const local = {
-    ok: sshVersion.exitCode === 0 && sshConfig.accessible && stateLocation.accessible && logLocation.accessible && (process.platform !== "win32" || programData !== null),
+    ok: sshVersion.exitCode === 0 && sshConfig.accessible && stateLocation.accessible && logLocation.accessible && textOperationLocation.accessible && (process.platform !== "win32" || programData !== null),
     packageVersion: VERSION,
     node: { version: process.version, platform: process.platform, arch: process.arch },
     ssh: { executable: sshExecutable(), ok: sshVersion.exitCode === 0, version: (sshVersion.stderr || sshVersion.stdout).trim() },
@@ -45,6 +47,7 @@ export async function runDoctor(activeStore: ActiveProcessStore, logStore: Proce
     sshConfig,
     state: { path: activeStore.path, location: stateLocation, recoveryRecordCount: activeStore.list().length, storageDiagnostics: activeStore.diagnostics() },
     logs: { directory: logStore.directory, location: logLocation, persistedLogCount: logStore.list().length, storageDiagnostics: logStore.diagnostics() },
+    textOperations: { path: textOperationStore.path, location: textOperationLocation, receiptCount: textOperationStore.count(), storageDiagnostics: textOperationStore.diagnostics() },
   };
   if (!host) return { ok: local.ok, local };
 
@@ -56,7 +59,7 @@ export async function runDoctor(activeStore: ActiveProcessStore, logStore: Proce
     "if kill -0 -- -$$ 2>/dev/null; then printf 'processGroupSignals=true\\n'; else printf 'processGroupSignals=false\\n'; fi",
     "if [ -n \"${TMPDIR:-}\" ] && [ -d \"$TMPDIR\" ] && [ -w \"$TMPDIR\" ]; then tmp=$TMPDIR; elif [ -d /tmp ] && [ -w /tmp ]; then tmp=/tmp; else tmp=; fi",
     "printf 'tempDirectory=%s\\n' \"$tmp\"",
-    "for tool in bash sh tar rsync sha256sum systemctl docker podman; do if command -v \"$tool\" >/dev/null 2>&1; then printf 'tool.%s=true\\n' \"$tool\"; else printf 'tool.%s=false\\n' \"$tool\"; fi; done",
+    "for tool in bash sh tar rsync sha256sum base64 flock rg systemctl docker podman; do if command -v \"$tool\" >/dev/null 2>&1; then printf 'tool.%s=true\\n' \"$tool\"; else printf 'tool.%s=false\\n' \"$tool\"; fi; done",
     "if [ \"$(id -u)\" -eq 0 ]; then printf 'sudo.state=already-root\\n'; elif ! command -v sudo >/dev/null 2>&1; then printf 'sudo.state=sudo-not-found\\n'; elif sudo -n true >/dev/null 2>&1; then printf 'sudo.state=available\\n'; else printf 'sudo.state=authentication-or-policy-required\\n'; fi",
   ].join("; ");
   const result = await runProcess({ executable: sshExecutable(), args: [...baseSshArgs(host), script], timeoutMs });
