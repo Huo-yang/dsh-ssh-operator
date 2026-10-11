@@ -1,6 +1,6 @@
 import type { ProcessResult } from "./process-runner.js";
 
-export type ErrorPhase = "validation" | "local" | "connect" | "authorize" | "execute" | "transfer" | "cleanup" | "state" | "log" | "internal";
+export type ErrorPhase = "validation" | "local" | "connect" | "authorize" | "execute" | "edit" | "transfer" | "cleanup" | "state" | "log" | "internal";
 
 export type ErrorCode =
   | "SSH_TIMEOUT" | "SSH_CANCELLED" | "SSH_AUTH_FAILED" | "SSH_HOST_KEY_FAILED"
@@ -8,6 +8,10 @@ export type ErrorCode =
   | "SSH_TRANSPORT_FAILED" | "REMOTE_COMMAND_FAILED" | "TRANSFER_FAILED"
   | "REMOTE_CLEANUP_FAILED" | "STATE_LOCK_FAILED" | "STATE_CORRUPT"
   | "LOG_IO_FAILED" | "SUDO_AUTH_REQUIRED" | "SUDO_POLICY_DENIED"
+  | "FILE_CHANGED_CONCURRENTLY" | "FILE_LOCKED" | "FILE_TOO_LARGE"
+  | "FILE_TYPE_UNSUPPORTED" | "PATCH_CONTEXT_MISMATCH" | "COMMIT_STATUS_UNKNOWN"
+  | "OPERATION_ID_REUSED"
+  | "WORKSPACE_ROOT_INVALID" | "REMOTE_CAPABILITY_UNAVAILABLE"
   | "VALIDATION_FAILED" | "INTERNAL_ERROR";
 
 export interface ErrorDetails {
@@ -17,7 +21,7 @@ export interface ErrorDetails {
 }
 
 export class OperatorError extends Error {
-  constructor(message: string, readonly details: ErrorDetails) {
+  constructor(message: string, readonly details: ErrorDetails, readonly context: Record<string, unknown> = {}) {
     super(message);
     this.name = "OperatorError";
   }

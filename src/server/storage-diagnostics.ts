@@ -1,7 +1,7 @@
 import { renameSync } from "node:fs";
 
 export interface StorageDiagnostic extends Record<string, unknown> {
-  area: "state" | "log";
+  area: "state" | "log" | "text-operation";
   action: "migrated" | "quarantined";
   path: string;
   timestamp: string;

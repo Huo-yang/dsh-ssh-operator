@@ -6,14 +6,6 @@ const wait = async (milliseconds: number): Promise<void> => {
   await new Promise((resolve) => setTimeout(resolve, milliseconds));
 };
 
-const waitFor = async (predicate: () => boolean, timeoutMs = 2_000): Promise<void> => {
-  const deadline = Date.now() + timeoutMs;
-  while (!predicate()) {
-    if (Date.now() >= deadline) throw new Error(`condition was not met within ${timeoutMs}ms`);
-    await wait(20);
-  }
-};
-
 test("ProcessManager retains cursor-based stdout and stderr", async () => {
   const manager = new ProcessManager();
   const started = manager.start({
@@ -58,10 +50,7 @@ test("ProcessManager captures and hides the managed remote PID marker", async ()
     command: "test-command",
     expectRemotePid: true,
   });
-  await waitFor(() => {
-    const state = manager.read(started.processId);
-    return state.remotePid === 4321 && state.running === false;
-  });
+  await wait(150);
   const result = manager.read(started.processId);
   assert.equal(result.remotePid, 4321);
   assert.equal(result.remoteExitCode, 255);
@@ -108,4 +97,3 @@ test("ProcessManager reports remote cleanup failure and still closes the local c
   assert.equal(manager.read(started.processId).running, false);
   manager.close(started.processId);
 });
-

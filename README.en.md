@@ -1,11 +1,11 @@
 <h1 align="center">dsh-ssh-operator</h1>
 
 <p align="center">Operate WSL and remote Linux hosts safely from DSH through system OpenSSH</p>
-<p align="center">Bundle 23 SSH Operator MCP tools with matching Skill guidance</p>
+<p align="center">Bundle 30 SSH Operator MCP tools with matching Skill guidance</p>
 <p align="center">Keep Windows work local and route Linux work through structured SSH</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.0-orange" alt="Version 0.1.0" />
+  <img src="https://img.shields.io/badge/version-0.2.0-orange" alt="Version 0.2.0" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" /></a>
   <img src="https://img.shields.io/badge/node-%3E%3D24-brightgreen" alt="Node.js >= 24" />
 </p>
@@ -21,13 +21,16 @@
 
 - Discover and diagnose concrete aliases from the Windows OpenSSH config.
 - Execute remote commands or stream Bash/POSIX shell scripts over standard input.
+- Select default, login, or interactive shells explicitly and set or clear remote environment variables without echoing values.
+- Page through remote directory trees, search text, and inspect login-environment differences.
+- Read, patch, or atomically write remote text with hash-based concurrency protection.
 - Stat, hash, upload, atomically upload, and download individual files with overwrite disabled by default.
 - Start, read, stop, and close managed remote processes.
 - Optionally persist process logs and reconcile jobs with identity checks after abnormal shutdowns.
 - Probe passwordless sudo passively and keep non-interactive elevation behind explicit tools.
 - Register a lifecycle-scoped `ssh-operator` Skill that guides safe composition of the MCP tools.
 
-The plugin exposes 23 `mcp__ssh_operator__*` tools through DSH's first-party `@deepseek-ai/dsh-mcp-client`. The bundled server starts system OpenSSH directly with `shell: false`, so remote scripts do not cross a PowerShell quoting layer.
+The plugin exposes 30 `mcp__ssh_operator__*` tools through DSH's first-party `@deepseek-ai/dsh-mcp-client`. The bundled server starts system OpenSSH directly with `shell: false`, so remote scripts do not cross a PowerShell quoting layer.
 
 ## Compatibility
 
@@ -41,18 +44,18 @@ The plugin exposes 23 `mcp__ssh_operator__*` tools through DSH's first-party `@d
 
 ### Install from a GitHub Release
 
-Download these files from [`v0.1.0`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.1.0) without extracting the archive:
+Download these files from [`v0.2.0`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.2.0) without extracting the archive:
 
 ```text
-dsh-ssh-operator-0.1.0.tgz
+dsh-ssh-operator-0.2.0.tgz
 SHA256SUMS.txt
 ```
 
 Verify SHA-256 and install the versioned archive:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 "C:\Downloads\dsh-ssh-operator-0.1.0.tgz"
-dsh plugin --profile web add "C:\Downloads\dsh-ssh-operator-0.1.0.tgz"
+Get-FileHash -Algorithm SHA256 "C:\Downloads\dsh-ssh-operator-0.2.0.tgz"
+dsh plugin --profile web add "C:\Downloads\dsh-ssh-operator-0.2.0.tgz"
 ```
 
 ### Install from the source directory
@@ -82,12 +85,14 @@ Restart DSH after configuration changes or linked-source updates. DSH's first-pa
 - Local processes are spawned directly; no PowerShell, `cmd.exe`, or other local command shell is invoked.
 - The plugin stores no SSH passwords, private keys, or complete SSH configuration.
 - Transfers refuse overwrite by default; atomic upload verifies SHA-256 before publication.
+- Text patches require the SHA-256 observed during reading and reject concurrent changes. An `operationId` can only retry an identical operation.
+- Environment probes return variable names and noise fingerprints, not proxy values. Interactive shells can run remote startup-file side effects and require explicit selection.
 - Timeout, cancellation, transport loss, and remote exit are distinct outcomes.
 - Persisted logs are plaintext and may contain sensitive output; enable them only when needed and delete them explicitly.
 - Recovery validates a unique process token instead of killing by PID alone.
 - Sudo tools always use `sudo -n`, never accept or transmit a password, and never edit remote sudoers; ordinary tools remain unprivileged.
 
-The bundled runtime is synchronized from `ssh-operator-mcp v0.15.0` at commit `c9c11324cd6f7134059cb2db8912673dca35f3df`.
+The bundled runtime is synchronized from `ssh-operator-mcp v0.18.1` at commit `e8c5d9d78bd0162abd11d899ac2d4f9690a210cc`.
 
 ## Development
 
@@ -95,7 +100,7 @@ The bundled runtime is synchronized from `ssh-operator-mcp v0.15.0` at commit `c
 pnpm install --frozen-lockfile
 pnpm peers check
 pnpm run check
-pnpm run release:prepare -- v0.1.0
+pnpm run release:prepare -- v0.2.0
 ```
 
 See the [architecture](docs/ARCHITECTURE.md), [testing](docs/TESTING.md), and [release](docs/RELEASING.md) notes for maintenance details.

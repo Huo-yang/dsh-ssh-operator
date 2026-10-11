@@ -37,4 +37,3 @@ test("a started remote command without an exit marker is a transport failure", (
 });
 
 test("classifies validation exceptions", () => assert.deepEqual(classifyThrownError(new Error("Local path must be absolute.")), { errorCode: "VALIDATION_FAILED", phase: "validation", retryable: false }));
-

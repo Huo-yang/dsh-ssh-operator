@@ -30,4 +30,3 @@ test("parseSha256 normalizes and validates digest", () => {
   assert.equal(parseSha256(`${"A".repeat(64)}\n`), "a".repeat(64));
   assert.throws(() => parseSha256("not-a-hash"));
 });
-
