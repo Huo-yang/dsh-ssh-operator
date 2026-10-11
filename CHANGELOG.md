@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-11
+
+### 新增 / Added
+
+- 为 DSH 插件列表提供中文和英文名称及简介，并随 DSH 当前语言切换。
+- Add Chinese and English plugin titles and descriptions that follow the active DSH locale.
+
+### 文档 / Documentation
+
+- 明确 `serverName` 应保持稳定，另外两个运行参数只适合作为高级设置。
+- Clarify that `serverName` should stay stable while the other two runtime controls belong in advanced settings.
+
 ## [0.2.0] - 2026-10-11
 
 ### 新增 / Added

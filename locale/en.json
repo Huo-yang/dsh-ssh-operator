@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "SSH Operator",
+    "description": "Operate WSL and remote Linux hosts safely through system OpenSSH with a bundled Skill and 30 MCP tools."
+  }
+}

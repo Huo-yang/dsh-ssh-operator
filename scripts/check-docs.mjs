@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-for (const file of ['README.md', 'README.en.md', 'LICENSE', 'CHANGELOG.md', 'CONTRIBUTING.md', 'docs/ARCHITECTURE.md', 'docs/TESTING.md', 'docs/RELEASING.md', 'skill/ssh-operator/SKILL.md']) {
+for (const file of ['README.md', 'README.en.md', 'LICENSE', 'CHANGELOG.md', 'CONTRIBUTING.md', 'docs/ARCHITECTURE.md', 'docs/TESTING.md', 'docs/RELEASING.md', 'skill/ssh-operator/SKILL.md', 'locale/zh.json', 'locale/en.json']) {
   await access(join(root, file))
 }
 const zh = await readFile(join(root, 'README.md'), 'utf8')
