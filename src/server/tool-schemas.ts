@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const commonFields = {
-  host: z.string().describe("A concrete Host alias from the local OpenSSH config"),
+  host: z.string().describe("REQUIRED. Explicit concrete Host alias from the local OpenSSH config; never omit it or infer it from prior conversation context."),
   cwd: z.string().optional().describe("Absolute working directory on the remote host"),
   timeoutMs: z.number().int().min(1000).max(3_600_000).optional(),
   maxOutputBytes: z.number().int().min(1024).max(20 * 1024 * 1024).optional(),

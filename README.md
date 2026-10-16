@@ -5,7 +5,7 @@
 <p align="center">Windows 工作留在本机，Linux 工作通过结构化 SSH 执行</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.1-orange" alt="Version 0.2.1" />
+  <img src="https://img.shields.io/badge/version-0.2.2-orange" alt="Version 0.2.2" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" /></a>
   <img src="https://img.shields.io/badge/node-%3E%3D24-brightgreen" alt="Node.js >= 24" />
 </p>
@@ -45,18 +45,18 @@
 
 ### 从 GitHub Release 安装
 
-从 [`v0.2.1`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.2.1) 下载以下文件，无需解压：
+从 [`v0.2.2`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.2.2) 下载以下文件，无需解压：
 
 ```text
-dsh-ssh-operator-0.2.1.tgz
+dsh-ssh-operator-0.2.2.tgz
 SHA256SUMS.txt
 ```
 
 核对 SHA-256 后安装版本化归档：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 "C:\Downloads\dsh-ssh-operator-0.2.1.tgz"
-dsh plugin --profile web add "C:\Downloads\dsh-ssh-operator-0.2.1.tgz"
+Get-FileHash -Algorithm SHA256 "C:\Downloads\dsh-ssh-operator-0.2.2.tgz"
+dsh plugin --profile web add "C:\Downloads\dsh-ssh-operator-0.2.2.tgz"
 ```
 
 ### 从源码目录安装
@@ -95,7 +95,7 @@ dsh plugin --profile web add "D:\CodeSpace\personal\DSH_Plugin\dsh-ssh-operator"
 - 恢复清理会校验远端进程身份 token，不按 PID 强制误杀。
 - sudo 工具固定使用 `sudo -n`，不接受或传输密码，也不会修改远端 sudoers；普通工具始终保持非特权。
 
-内置运行时同步自 `ssh-operator-mcp v0.18.1`（提交 `e8c5d9d78bd0162abd11d899ac2d4f9690a210cc`）。
+内置运行时同步自 `ssh-operator-mcp v0.18.2`（提交 `fb5eecc6df4728e83a96f37bd38f865a5350ec4f`）。凡工具 schema 中出现 `host`，模型必须在每次调用时显式传入具体别名，不能依赖对话上下文推断；本地诊断模式的 `ssh_doctor` 以及不声明 `host` 的进程、日志和恢复工具除外。
 
 ## 开发
 
@@ -103,7 +103,7 @@ dsh plugin --profile web add "D:\CodeSpace\personal\DSH_Plugin\dsh-ssh-operator"
 pnpm install --frozen-lockfile
 pnpm peers check
 pnpm run check
-pnpm run release:prepare -- v0.2.1
+pnpm run release:prepare -- v0.2.2
 ```
 
 维护说明见 [架构](docs/ARCHITECTURE.md)、[测试](docs/TESTING.md)和[发布](docs/RELEASING.md)文档。

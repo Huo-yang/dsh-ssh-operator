@@ -181,7 +181,10 @@ server.registerTool(
   "ssh_doctor",
   {
     description: "Diagnose local SSH-operator prerequisites and optionally inspect a remote host without changing configuration.",
-    inputSchema: { host: z.string().optional(), timeoutMs: z.number().int().min(1000).max(3_600_000).optional() },
+    inputSchema: {
+      host: z.string().optional().describe("Optional only for local diagnostics. Pass an explicit concrete Host alias to include remote checks."),
+      timeoutMs: z.number().int().min(1000).max(3_600_000).optional(),
+    },
     annotations: { readOnlyHint: true },
   },
   async ({ host, timeoutMs }) => {

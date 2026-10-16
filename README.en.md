@@ -5,7 +5,7 @@
 <p align="center">Keep Windows work local and route Linux work through structured SSH</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.1-orange" alt="Version 0.2.1" />
+  <img src="https://img.shields.io/badge/version-0.2.2-orange" alt="Version 0.2.2" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" /></a>
   <img src="https://img.shields.io/badge/node-%3E%3D24-brightgreen" alt="Node.js >= 24" />
 </p>
@@ -45,18 +45,18 @@ The plugin exposes 30 `mcp__ssh_operator__*` tools through DSH's first-party `@d
 
 ### Install from a GitHub Release
 
-Download these files from [`v0.2.1`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.2.1) without extracting the archive:
+Download these files from [`v0.2.2`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.2.2) without extracting the archive:
 
 ```text
-dsh-ssh-operator-0.2.1.tgz
+dsh-ssh-operator-0.2.2.tgz
 SHA256SUMS.txt
 ```
 
 Verify SHA-256 and install the versioned archive:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 "C:\Downloads\dsh-ssh-operator-0.2.1.tgz"
-dsh plugin --profile web add "C:\Downloads\dsh-ssh-operator-0.2.1.tgz"
+Get-FileHash -Algorithm SHA256 "C:\Downloads\dsh-ssh-operator-0.2.2.tgz"
+dsh plugin --profile web add "C:\Downloads\dsh-ssh-operator-0.2.2.tgz"
 ```
 
 ### Install from the source directory
@@ -95,7 +95,7 @@ Restart DSH after configuration changes or linked-source updates. DSH's first-pa
 - Recovery validates a unique process token instead of killing by PID alone.
 - Sudo tools always use `sudo -n`, never accept or transmit a password, and never edit remote sudoers; ordinary tools remain unprivileged.
 
-The bundled runtime is synchronized from `ssh-operator-mcp v0.18.1` at commit `e8c5d9d78bd0162abd11d899ac2d4f9690a210cc`.
+The bundled runtime is synchronized from `ssh-operator-mcp v0.18.2` at commit `fb5eecc6df4728e83a96f37bd38f865a5350ec4f`. Whenever a tool schema declares `host`, the model must pass a concrete alias explicitly on every call instead of inferring it from conversation context. Local-only `ssh_doctor` and process, log, or recovery tools whose schemas do not declare `host` are the exceptions.
 
 ## Development
 
@@ -103,7 +103,7 @@ The bundled runtime is synchronized from `ssh-operator-mcp v0.18.1` at commit `e
 pnpm install --frozen-lockfile
 pnpm peers check
 pnpm run check
-pnpm run release:prepare -- v0.2.1
+pnpm run release:prepare -- v0.2.2
 ```
 
 See the [architecture](docs/ARCHITECTURE.md), [testing](docs/TESTING.md), and [release](docs/RELEASING.md) notes for maintenance details.

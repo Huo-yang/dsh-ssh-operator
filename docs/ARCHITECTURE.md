@@ -13,4 +13,4 @@ The Skill is registered directly on `ctx.skills`, so its lifecycle matches the b
 
 Generated `lib/` files are not maintained source. Run `pnpm run build` after source changes.
 
-The v0.2.0 release vendors the canonical `ssh-operator-mcp v0.18.1` source at commit `e8c5d9d78bd0162abd11d899ac2d4f9690a210cc`. Future runtime updates must synchronize `src/server`, `tests/unit`, the packaged Skill, the exact smoke-test inventory, and this provenance marker together.
+The v0.2.2 release vendors the canonical `ssh-operator-mcp v0.18.2` source at commit `fb5eecc6df4728e83a96f37bd38f865a5350ec4f`. Future runtime updates must synchronize `src/server`, `tests/unit`, the packaged Skill, the exact smoke-test inventory, and this provenance marker together.
