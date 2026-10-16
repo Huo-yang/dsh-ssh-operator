@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-16
+
+### 修复 / Fixed
+
+- 将所有声明 `host` 的工具 schema 标记为必须显式传入主机别名，并在内嵌 Skill 中增加硬规则与正反示例，减少模型偶发漏传目标主机导致的重试。
+- Mark every tool schema that declares `host` as requiring an explicit alias, and add a hard rule plus positive/negative examples to the bundled Skill to reduce retries caused by occasional omitted targets.
+- 精确说明例外：本地 `ssh_doctor` 可不传 `host`；只接受 `processId` 或无需参数的进程、日志和恢复工具不得虚构 `host`。
+- Document the exact exceptions: local `ssh_doctor` may omit `host`, while process-ID, log, and recovery tools must not receive an invented one.
+
 ## [0.2.1] - 2026-10-11
 
 ### 新增 / Added

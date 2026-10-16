@@ -8,6 +8,7 @@ description: Operate WSL and remote Linux hosts through the ssh-operator MCP too
 Use the `ssh-operator` MCP server for work that belongs on a configured Linux SSH host. Keep Windows services, applications, registry, and Windows-only filesystem work on the local Windows host.
 
 - Discover aliases with `ssh_list_hosts` and verify a target with `ssh_probe` when its current identity or environment matters.
+- Before every tool call, inspect its input schema. If the schema contains `host`, always pass `host` explicitly as a concrete alias; never infer or omit it from conversation context. For example, use `ssh_exec({ host: "wsl-ubuntu", command: "pwd" })`, not `ssh_exec({ command: "pwd" })`. Tools whose schema has no `host` (such as process-ID/log/recovery tools) must not receive an invented one; `ssh_doctor` may omit `host` only for local diagnostics.
 - Use `ssh_doctor` when diagnosing local OpenSSH/config/state readiness or determining which optional capabilities a host actually provides. It is passive and does not change SSH configuration.
 - Use `ssh_env_probe` to compare default and login-shell PATH, proxy metadata, and startup-file availability. Enable interactive probing only when startup-file behavior matters; it can run shell initialization side effects and emits only noise fingerprints, never the noise or proxy values.
 - Use `ssh_exec` for a concise command that should be interpreted by the remote login shell.
