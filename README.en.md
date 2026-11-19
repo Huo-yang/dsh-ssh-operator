@@ -5,7 +5,7 @@
 <p align="center">Keep Windows work local and route Linux work through structured SSH</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.2-orange" alt="Version 0.2.2" />
+  <img src="https://img.shields.io/badge/version-0.3.0-orange" alt="Version 0.3.0" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" /></a>
   <img src="https://img.shields.io/badge/node-%3E%3D24-brightgreen" alt="Node.js >= 24" />
 </p>
@@ -31,7 +31,7 @@
 - Register a lifecycle-scoped `ssh-operator` Skill that guides safe composition of the MCP tools.
 - Localize the plugin title and description with the active Chinese or English DSH interface language.
 
-The plugin exposes 30 `mcp__ssh_operator__*` tools through DSH's first-party `@deepseek-ai/dsh-mcp-client`. The bundled server starts system OpenSSH directly with `shell: false`, so remote scripts do not cross a PowerShell quoting layer.
+The Bundle patch mounts the `@deepseek-ai/dsh-mcp-client` shipped by the active DSH installation and exposes 30 `mcp__ssh_operator__*` tools. The plugin no longer installs or imports DSH internal packages. The bundled server starts system OpenSSH directly with `shell: false`, so remote scripts do not cross a PowerShell quoting layer.
 
 ## Compatibility
 
@@ -45,18 +45,18 @@ The plugin exposes 30 `mcp__ssh_operator__*` tools through DSH's first-party `@d
 
 ### Install from a GitHub Release
 
-Download these files from [`v0.2.2`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.2.2) without extracting the archive:
+Download these files from [`v0.3.0`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.3.0) without extracting the archive:
 
 ```text
-dsh-ssh-operator-0.2.2.tgz
+dsh-ssh-operator-0.3.0.tgz
 SHA256SUMS.txt
 ```
 
 Verify SHA-256 and install the versioned archive:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 "C:\Downloads\dsh-ssh-operator-0.2.2.tgz"
-dsh plugin --profile web add "C:\Downloads\dsh-ssh-operator-0.2.2.tgz"
+Get-FileHash -Algorithm SHA256 "C:\Downloads\dsh-ssh-operator-0.3.0.tgz"
+dsh plugin --profile web add "C:\Downloads\dsh-ssh-operator-0.3.0.tgz"
 ```
 
 ### Install from the source directory
@@ -70,7 +70,7 @@ dsh plugin --profile web add "D:\CodeSpace\personal\DSH_Plugin\dsh-ssh-operator"
 
 Fully exit and restart DSH after installation. The tool catalog should contain names such as `mcp__ssh_operator__ssh_list_hosts`, and the Skill catalog should contain `ssh-operator`.
 
-## Configuration
+## Runtime parameters
 
 | Setting | Default | Meaning |
 |---|---:|---|
@@ -78,7 +78,7 @@ Fully exit and restart DSH after installation. The tool catalog should contain n
 | `toolCallTimeoutMs` | `120000` | Timeout for one MCP tool call |
 | `failOnStartupError` | `false` | Do not block DSH startup when the first MCP connection fails |
 
-`serverName` defines the public tool namespace, so changing it renames every `mcp__ssh_operator__*` tool and should not be a routine setting. `toolCallTimeoutMs` and `failOnStartupError` fit better under advanced settings; enabling the latter can prevent the entire DSH profile from starting when MCP activation fails.
+These are stable MCP bridge parameters in the Bundle, not routine settings exposed on the Installed Plugins page. Changing `serverName` renames every tool, while `failOnStartupError=true` can prevent the whole profile from starting. Advanced users can override the `ssh-operator-bridge` row in the profile's own `cordis.patch.yml`.
 
 Restart DSH after configuration changes or linked-source updates. DSH's first-party MCP client owns reconnection after a transport loss.
 
@@ -101,9 +101,8 @@ The bundled runtime is synchronized from `ssh-operator-mcp v0.18.2` at commit `f
 
 ```powershell
 pnpm install --frozen-lockfile
-pnpm peers check
 pnpm run check
-pnpm run release:prepare -- v0.2.2
+pnpm run release:prepare -- v0.3.0
 ```
 
 See the [architecture](docs/ARCHITECTURE.md), [testing](docs/TESTING.md), and [release](docs/RELEASING.md) notes for maintenance details.

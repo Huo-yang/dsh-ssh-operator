@@ -5,7 +5,7 @@
 <p align="center">Windows 工作留在本机，Linux 工作通过结构化 SSH 执行</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.2-orange" alt="Version 0.2.2" />
+  <img src="https://img.shields.io/badge/version-0.3.0-orange" alt="Version 0.3.0" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" /></a>
   <img src="https://img.shields.io/badge/node-%3E%3D24-brightgreen" alt="Node.js >= 24" />
 </p>
@@ -31,7 +31,7 @@
 - 注册生命周期与插件一致的 `ssh-operator` Skill，指导模型安全组合 MCP 工具。
 - 插件列表中的名称和简介随 DSH 的中文或英文界面切换。
 
-插件通过 DSH 官方 `@deepseek-ai/dsh-mcp-client` 暴露 30 个 `mcp__ssh_operator__*` 工具。内置服务直接以 `shell: false` 启动系统 OpenSSH，远端脚本不会经过 PowerShell 引号层。
+插件通过 Bundle patch 挂载当前 DSH 自带的 `@deepseek-ai/dsh-mcp-client`，暴露 30 个 `mcp__ssh_operator__*` 工具；插件本身不再安装或导入 DSH 内部包。内置服务直接以 `shell: false` 启动系统 OpenSSH，远端脚本不会经过 PowerShell 引号层。
 
 ## 兼容性
 
@@ -45,18 +45,18 @@
 
 ### 从 GitHub Release 安装
 
-从 [`v0.2.2`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.2.2) 下载以下文件，无需解压：
+从 [`v0.3.0`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.3.0) 下载以下文件，无需解压：
 
 ```text
-dsh-ssh-operator-0.2.2.tgz
+dsh-ssh-operator-0.3.0.tgz
 SHA256SUMS.txt
 ```
 
 核对 SHA-256 后安装版本化归档：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 "C:\Downloads\dsh-ssh-operator-0.2.2.tgz"
-dsh plugin --profile web add "C:\Downloads\dsh-ssh-operator-0.2.2.tgz"
+Get-FileHash -Algorithm SHA256 "C:\Downloads\dsh-ssh-operator-0.3.0.tgz"
+dsh plugin --profile web add "C:\Downloads\dsh-ssh-operator-0.3.0.tgz"
 ```
 
 ### 从源码目录安装
@@ -70,7 +70,7 @@ dsh plugin --profile web add "D:\CodeSpace\personal\DSH_Plugin\dsh-ssh-operator"
 
 安装后完全退出并重新启动 DSH。工具目录应出现 `mcp__ssh_operator__ssh_list_hosts` 等工具，Skill 目录应出现 `ssh-operator`。
 
-## 配置
+## 运行参数
 
 | 配置项 | 默认值 | 说明 |
 |---|---:|---|
@@ -78,7 +78,7 @@ dsh plugin --profile web add "D:\CodeSpace\personal\DSH_Plugin\dsh-ssh-operator"
 | `toolCallTimeoutMs` | `120000` | 单次 MCP 工具调用超时 |
 | `failOnStartupError` | `false` | 首次 MCP 连接失败时不阻止 DSH 启动 |
 
-`serverName` 定义公开工具命名空间，修改后会改变全部 `mcp__ssh_operator__*` 工具名，因此不建议作为日常设置开放。`toolCallTimeoutMs` 和 `failOnStartupError` 更适合作为高级设置；后者开启后，MCP 启动错误可能阻止整个 DSH profile 启动。
+这些值属于 Bundle 中 MCP bridge 行的稳定运行参数，不在“插件 - 已安装”页签作为日常设置开放。`serverName` 变化会重命名全部工具；`failOnStartupError=true` 还可能阻止整个 profile 启动。需要高级调优时可在 profile 自己的 `cordis.patch.yml` 中覆盖 `ssh-operator-bridge` 行。
 
 配置变化和链接源码更新均需重启 DSH 才能可靠生效。MCP 断开后的重连由 DSH 官方 MCP 客户端管理。
 
@@ -101,9 +101,8 @@ dsh plugin --profile web add "D:\CodeSpace\personal\DSH_Plugin\dsh-ssh-operator"
 
 ```powershell
 pnpm install --frozen-lockfile
-pnpm peers check
 pnpm run check
-pnpm run release:prepare -- v0.2.2
+pnpm run release:prepare -- v0.3.0
 ```
 
 维护说明见 [架构](docs/ARCHITECTURE.md)、[测试](docs/TESTING.md)和[发布](docs/RELEASING.md)文档。

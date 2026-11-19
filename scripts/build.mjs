@@ -16,7 +16,6 @@ await build({
   format: 'esm',
   platform: 'node',
   target: 'node24',
-  external: ['@deepseek-ai/cordis', '@deepseek-ai/dsh-mcp-client', '@deepseek-ai/dsh-skill', '@deepseek-ai/schemastery'],
   logLevel: 'info',
 })
 
