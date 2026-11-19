@@ -1,7 +1,6 @@
 {
-  "name": "dsh-ssh-operator",
-  "version": "0.3.0",
-  "private": true,
+  "name": "@huo-yang/dsh-ssh-operator",
+  "version": "0.3.1",
   "type": "module",
   "description": "DSH plugin bundle for safe SSH operation through the system OpenSSH client.",
   "homepage": "https://github.com/Huo-yang/dsh-ssh-operator#readme",
@@ -60,6 +59,9 @@
   },
   "packageManager": "pnpm@11.19.0",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "dsh",
     "plugin",

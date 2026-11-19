@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-19
+
+### 新增 / Added
+
+- 以 `@huo-yang/dsh-ssh-operator` 将版本化插件包公开发布到 npm，同时保留同版本 GitHub Release 资产。
+- Publish the versioned plugin package publicly on npm as `@huo-yang/dsh-ssh-operator` while retaining matching GitHub Release assets.
+
 ## [0.3.0] - 2026-11-19
 
 ### 变更 / Changed
