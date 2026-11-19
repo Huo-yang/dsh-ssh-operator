@@ -1,10 +1,27 @@
-# dsh-ssh-operator 的组合层：加载插件 Host 入口；Host 入口再使用 DSH 官方
-# dsh-mcp-client 桥接内置的 stdio MCP 服务。工具公开名为 mcp__ssh_operator__*。
+# dsh-ssh-operator carrier bundle：Host 只注册 Skill；第二行挂载当前 DSH
+# 自带的官方 MCP client。第三方插件不直接 import DSH 内部运行时包。
 
 - insert:
     - id: ssh-operator
       name: dsh-ssh-operator
+
+    - id: ssh-operator-bridge
+      name: "@deepseek-ai/dsh-mcp-client"
       config:
         serverName: ssh_operator
+        transport: stdio
+        command: node
+        args:
+          - --input-type=module
+          - -e
+          - "import('dsh-ssh-operator/server')"
+        cwd: !!js ctx.get('profileContext')?.dir || process.cwd()
         toolCallTimeoutMs: 120000
         failOnStartupError: false
+        reconnect:
+          enabled: true
+          initialDelayMs: 500
+          maxDelayMs: 30000
+          maxAttempts: 10
+        env:
+          PROGRAMDATA: !!js process.env.PROGRAMDATA || 'C:\ProgramData'

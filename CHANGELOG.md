@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-19
+
+### 变更 / Changed
+
+- 重构为 carrier bundle：由 `cordis.patch.yml` 挂载当前 DSH 自带的 MCP client，Host 不再导入或精确绑定 DSH 内部包。
+- Refactor into a carrier bundle that mounts the active DSH installation's MCP client from `cordis.patch.yml`; the host no longer imports or pins DSH internal packages.
+- 将 MCP 服务作为包导出项启动，并保留独立的 Skill Host 行与稳定的 30 工具命名空间。
+- Launch the MCP server through a package export while retaining a separate Skill host row and the stable 30-tool namespace.
+
 ## [0.2.2] - 2026-10-16
 
 ### 修复 / Fixed

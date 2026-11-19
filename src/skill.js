@@ -30,7 +30,7 @@ export async function loadBundledSkill(file) {
   }
 }
 
-/** @param {import('@deepseek-ai/cordis').Context} ctx */
+/** @param {{ skills: { register(skill: object): unknown } }} ctx */
 export async function registerBundledSkill(ctx) {
   const file = fileURLToPath(new URL('../skill/ssh-operator/SKILL.md', import.meta.url))
   const skill = await loadBundledSkill(file)
