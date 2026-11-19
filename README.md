@@ -5,7 +5,7 @@
 <p align="center">Windows 工作留在本机，Linux 工作通过结构化 SSH 执行</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.3.0-orange" alt="Version 0.3.0" />
+  <img src="https://img.shields.io/badge/version-0.3.1-orange" alt="Version 0.3.1" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" /></a>
   <img src="https://img.shields.io/badge/node-%3E%3D24-brightgreen" alt="Node.js >= 24" />
 </p>
@@ -43,20 +43,28 @@
 
 ## 安装
 
+### 从 npm 安装
+
+```powershell
+dsh plugin --profile web add "@huo-yang/dsh-ssh-operator@0.3.1"
+```
+
+安装固定版本可避免未来更新改变正在使用的插件。npm 包与同版本 GitHub Release 由相同提交构建。
+
 ### 从 GitHub Release 安装
 
-从 [`v0.3.0`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.3.0) 下载以下文件，无需解压：
+从 [`v0.3.1`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.3.1) 下载以下文件，无需解压：
 
 ```text
-dsh-ssh-operator-0.3.0.tgz
+huo-yang-dsh-ssh-operator-0.3.1.tgz
 SHA256SUMS.txt
 ```
 
 核对 SHA-256 后安装版本化归档：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 "C:\Downloads\dsh-ssh-operator-0.3.0.tgz"
-dsh plugin --profile web add "C:\Downloads\dsh-ssh-operator-0.3.0.tgz"
+Get-FileHash -Algorithm SHA256 "C:\Downloads\huo-yang-dsh-ssh-operator-0.3.1.tgz"
+dsh plugin --profile web add "C:\Downloads\huo-yang-dsh-ssh-operator-0.3.1.tgz"
 ```
 
 ### 从源码目录安装
@@ -102,7 +110,7 @@ dsh plugin --profile web add "D:\CodeSpace\personal\DSH_Plugin\dsh-ssh-operator"
 ```powershell
 pnpm install --frozen-lockfile
 pnpm run check
-pnpm run release:prepare -- v0.3.0
+pnpm run release:prepare -- v0.3.1
 ```
 
 维护说明见 [架构](docs/ARCHITECTURE.md)、[测试](docs/TESTING.md)和[发布](docs/RELEASING.md)文档。
@@ -110,7 +118,7 @@ pnpm run release:prepare -- v0.3.0
 ## 卸载
 
 ```powershell
-dsh plugin --profile web remove dsh-ssh-operator
+dsh plugin --profile web remove "@huo-yang/dsh-ssh-operator"
 ```
 
 卸载会同时移除 Bundle、内嵌 Skill 和 MCP 工具。插件不创建凭据文件；已选择持久化的进程日志和恢复状态会保留，手工清理前应先确认内容是否仍有价值。

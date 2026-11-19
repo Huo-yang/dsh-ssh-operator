@@ -5,7 +5,7 @@
 <p align="center">Keep Windows work local and route Linux work through structured SSH</p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.3.0-orange" alt="Version 0.3.0" />
+  <img src="https://img.shields.io/badge/version-0.3.1-orange" alt="Version 0.3.1" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" /></a>
   <img src="https://img.shields.io/badge/node-%3E%3D24-brightgreen" alt="Node.js >= 24" />
 </p>
@@ -43,20 +43,28 @@ The Bundle patch mounts the `@deepseek-ai/dsh-mcp-client` shipped by the active 
 
 ## Installation
 
+### Install from npm
+
+```powershell
+dsh plugin --profile web add "@huo-yang/dsh-ssh-operator@0.3.1"
+```
+
+Pinning the version prevents a future update from changing the installed plugin unexpectedly. The npm package and matching GitHub Release are built from the same commit.
+
 ### Install from a GitHub Release
 
-Download these files from [`v0.3.0`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.3.0) without extracting the archive:
+Download these files from [`v0.3.1`](https://github.com/Huo-yang/dsh-ssh-operator/releases/tag/v0.3.1) without extracting the archive:
 
 ```text
-dsh-ssh-operator-0.3.0.tgz
+huo-yang-dsh-ssh-operator-0.3.1.tgz
 SHA256SUMS.txt
 ```
 
 Verify SHA-256 and install the versioned archive:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 "C:\Downloads\dsh-ssh-operator-0.3.0.tgz"
-dsh plugin --profile web add "C:\Downloads\dsh-ssh-operator-0.3.0.tgz"
+Get-FileHash -Algorithm SHA256 "C:\Downloads\huo-yang-dsh-ssh-operator-0.3.1.tgz"
+dsh plugin --profile web add "C:\Downloads\huo-yang-dsh-ssh-operator-0.3.1.tgz"
 ```
 
 ### Install from the source directory
@@ -102,7 +110,7 @@ The bundled runtime is synchronized from `ssh-operator-mcp v0.18.2` at commit `f
 ```powershell
 pnpm install --frozen-lockfile
 pnpm run check
-pnpm run release:prepare -- v0.3.0
+pnpm run release:prepare -- v0.3.1
 ```
 
 See the [architecture](docs/ARCHITECTURE.md), [testing](docs/TESTING.md), and [release](docs/RELEASING.md) notes for maintenance details.
@@ -110,7 +118,7 @@ See the [architecture](docs/ARCHITECTURE.md), [testing](docs/TESTING.md), and [r
 ## Uninstall
 
 ```powershell
-dsh plugin --profile web remove dsh-ssh-operator
+dsh plugin --profile web remove "@huo-yang/dsh-ssh-operator"
 ```
 
 Uninstalling removes the Bundle, embedded Skill, and MCP tools together. The plugin creates no credential file. Opt-in persisted process logs and recovery state are deliberately retained; inspect them before any manual cleanup.

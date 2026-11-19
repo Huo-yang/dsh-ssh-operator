@@ -9,6 +9,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const outDir = join(root, 'dist')
 const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
 const expectedTag = `v${pkg.version}`
+const archiveBase = pkg.name.replace(/^@/u, '').replace('/', '-')
 const requestedTag = process.env.GITHUB_REF_TYPE === 'tag' ? process.env.GITHUB_REF_NAME : process.argv[2]
 
 assert.match(pkg.version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/)
@@ -24,7 +25,7 @@ assert.ok(![...packed].some(file => /^(src|scripts|test|tests)\//.test(file)))
 
 await runNpm(['pack', '--ignore-scripts', '--pack-destination', 'dist'], root)
 const archives = (await readdir(outDir)).filter(name => name.endsWith('.tgz'))
-assert.deepEqual(archives, [`${pkg.name}-${pkg.version}.tgz`])
+assert.deepEqual(archives, [`${archiveBase}-${pkg.version}.tgz`])
 const archive = archives[0]
 const sha256 = createHash('sha256').update(await readFile(join(outDir, archive))).digest('hex')
 await writeFile(join(outDir, 'SHA256SUMS.txt'), `${sha256}  ${archive}\n`)

@@ -3,7 +3,7 @@
 `dsh-ssh-operator` has two runtime layers:
 
 1. `lib/index.js` is the minimal Cordis/DSH host entry. It only registers the packaged `ssh-operator` Skill.
-2. `cordis.patch.yml` mounts the official `@deepseek-ai/dsh-mcp-client` supplied by the active DSH installation and starts the exported `dsh-ssh-operator/server` entry over stdio.
+2. `cordis.patch.yml` mounts the official `@deepseek-ai/dsh-mcp-client` supplied by the active DSH installation and starts the exported `@huo-yang/dsh-ssh-operator/server` entry over stdio.
 3. `lib/server.js` is a self-contained stdio MCP server bundled from `src/server`. It owns OpenSSH commands, explicit non-interactive sudo, transfers, managed processes, durable recovery state, and optional logs.
 
 This carrier layout keeps MCP protocol adaptation in DSH and SSH behavior in the bundled server. The host does not import DSH internal packages and declares no runtime peer on them, so a DSH cache refresh cannot leave the plugin pointing at stale package junctions. DSH owns tool discovery, scoped registration, cancellation, timeouts, and reconnection.
